@@ -1,122 +1,180 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
 
-class DampenSpringSystem():
-    def __init__(self, x0, v0, mass, k, mu):
+import torch
+
+class ThreeBodySystem():
+    def __init__(self, r1,r2,r3,v1,v2,v3, t_span, mass, G):
         
-        self.x0 = x0
-        self.v0 = v0
+        self.r1 = r1
+        self.r2 = r2
+        self.r3 = r3
+
+        self.v1 = v1
+        self.v2 = v2
+        self.v3 = v3
+
+        self.t_span = t_span
+
         self.mass = mass
-        self.k = k
-        self.mu = mu
+        self.G = G
 
-        self.omega = np.sqrt(k/mass)
-        self.ksi = mu/(2*np.sqrt(mass*k))
+        self.initial_conditions = np.concatenate([r1, r2, r3, v1, v2, v3])
 
 
-    def equation(self, x, xdot,xdotdot):
-        return self.omega**2 * x + 2 * self.ksi * self.omega * xdot + xdotdot
+    def equation(self, r, rdot,rdotdot):
+        r1, r2, r3 = r[:,0:2], r[:,2:4], r[:,4:6]
+        rdotdot1,rdotdot2,rdotdot3 = rdotdot[:,0:2], rdotdot[:,2:4], rdotdot[:,4:6]
+        # v1, v2, v3 = rdot[6:8], rdot[8:10], rdot[10:12]
+        m1,m2,m3 = self.mass
+        # Calculate distances
+        def distance(rA, rB):
+            try :
+                return np.linalg.norm(rA - rB)
+            
+            except Exception:
+                return torch.norm(rA - rB)
+
+        r12, r13, r23 = distance(r1, r2), distance(r1, r3), distance(r2, r3)
+
+        # Compute accelerations due to gravity
+        a1 = self.G * m2 * (r2 - r1) / r12**3 + self.G * m3 * (r3 - r1) / r13**3
+        a2 = self.G * m1 * (r1 - r2) / r12**3 + self.G * m3 * (r3 - r2) / r23**3
+        a3 = self.G * m1 * (r1 - r3) / r13**3 + self.G * m2 * (r2 - r3) / r23**3
+        return (m1*rdotdot1 - a1)**2 + (m2* rdotdot2 - a2)**2 + (m3 * rdotdot3 - a3)**2
+    
+    def three_body_equations(self, t, y):
+        # Unpack positions and velocities
+        r1, r2, r3 = y[0:2], y[2:4], y[4:6]
+        v1, v2, v3 = y[6:8], y[8:10], y[10:12]
+        m1,m2,m3 = self.mass
+        # Calculate distances
+        def distance(rA, rB):
+            try:
+                return np.linalg.norm(rA - rB)
+
+            except Exception:
+                return torch.norm(rA - rB)
+
+        r12, r13, r23 = distance(r1, r2), distance(r1, r3), distance(r2, r3)
+
+        # Compute accelerations due to gravity
+        a1 = self.G * m2 * (r2 - r1) / r12**3 + self.G * m3 * (r3 - r1) / r13**3
+        a2 = self.G * m1 * (r1 - r2) / r12**3 + self.G * m3 * (r3 - r2) / r23**3
+        a3 = self.G * m1 * (r1 - r3) / r13**3 + self.G * m2 * (r2 - r3) / r23**3
+
+        # Return derivative [dr1/dt, dr2/dt, dr3/dt, dv1/dt, dv2/dt, dv3/dt]
+        return np.concatenate([v1, v2, v3, a1, a2, a3])
     
     def get_solution(self, t):
-
-        if self.ksi<1:
-            omega_d = self.omega*np.sqrt(1-self.ksi**2)
-            c1 = self.x0
-            c2 = (self.v0 + self.ksi * self.omega * self.x0)/omega_d
-            x = np.exp(-self.ksi * self.omega * t) * (c1 * np.cos(omega_d * t) + c2*np.sin(omega_d*t))
-
-        elif np.isclose(self.ksi, 1):
-            x = (self.x0 + (self.v0 + self.omega + self.x0)*t)*np.exp(-self.omega * t)
         
-        else:
-            lambda_1 = -self.ksi*self.omega + self.omega * np.sqrt(self.ksi**2 - 1)
-            lambda_2 = -self.ksi*self.omega - self.omega * np.sqrt(self.ksi**2 - 1)
+        solution = solve_ivp(self.three_body_equations, self.t_span, self.initial_conditions, t_eval=t, rtol=1e-9)
+        return solution.y[:6], solution.y[6:12]
 
-            c2 = (self.v0 - lambda_1 * self.x0)/(lambda_2 - lambda_1)
-            c1 = self.x0 - c2
-
-            x = c1*np.exp(lambda_1 * t) + c2 * np.exp(lambda_2 * t)
-        
-        return x
-    
-    def get_first_derivatives(self,t):
-        if self.ksi<1:
-            omega_d = self.omega*np.sqrt(1-self.ksi**2)
-
-            c1 = self.x0
-            c2 = (self.v0 + self.ksi * self.omega * self.x0)/omega_d
-
-            xdot = np.exp(-self.ksi * self.omega * t) * ((c1 * self.omega * self.ksi+c2*omega_d) * np.cos(omega_d * t) - (c2*self.ksi*self.omega + c1*omega_d)*np.sin(omega_d*t))
-
-        elif np.isclose(self.ksi, 1):
-            xdot = (self.v0*(1- self.omega * t) - t*self.x0*self.omega**2)*np.exp(-self.omega * t)
-        
-        else:
-            lambda_1 = -self.ksi*self.omega + self.omega * np.sqrt(self.ksi**2 - 1)
-            lambda_2 = -self.ksi*self.omega - self.omega * np.sqrt(self.ksi**2 - 1)
-
-            c2 = (self.v0 - lambda_1 * self.x0)/(lambda_2 - lambda_1)
-            c1 = self.x0 - c2
-
-            xdot = c1*lambda_1 * np.exp(lambda_1 * t) + c2 * lambda_2 * np.exp(lambda_2 * t)
-        
-        return xdot
-    
-    def get_second_derivatives(self,t):
-        return -(1/self.mass) * (self.k*self.get_solution(t) + self.mu*self.get_first_derivatives(t))
-
-
-    def generate_noisy_datapoints(self, t_min, t_max, num_points, std_x, true_derivatives = True):
+    def generate_noisy_datapoints(self, t_min, t_max, num_points, std_x):
         
         t_sample = np.linspace(t_min,t_max,num_points)
 
-        true_sol = self.get_solution(t_sample)
+        true_sol, true_vel = self.get_solution(t_sample)
         noisy_sol = true_sol + np.random.normal(0,std_x,true_sol.shape)
-        if not true_derivatives:
-            print(noisy_sol.shape)
-            first_der = np.gradient(noisy_sol, t_sample, edge_order=2)            
-            second_der = np.gradient(first_der, t_sample, edge_order=2)
-        
-        else:
-            first_der = self.get_first_derivatives(t_sample)
-            second_der = self.get_second_derivatives(t_sample)
-        
         datadict = {
             "t":t_sample,
             "x":noisy_sol,
-            "xdot":first_der,
-            "xdotdot":second_der
+            "xdot": true_vel
         }
 
         return datadict
 
 
+import numpy as np
+from scipy.integrate import solve_ivp
 
-if __name__ == "__main__" :
+class TwoBodySystem:
+    def __init__(self, r1, r2, v1, v2, t_span, mass, G):
+        self.r1 = r1
+        self.r2 = r2
+        self.v1 = v1
+        self.v2 = v2
+        self.t_span = t_span
+        self.mass = mass
+        self.G = G
 
-    mass = 1
-    mu = 1
-    k = [10]
+        # Initial conditions for two bodies
+        self.initial_conditions = np.concatenate([r1, r2, v1, v2])
+        self.initial_momentum = mass[0] * v1 + mass[1] * v2
 
-    fig, axs = plt.subplots(2,1)
-    for i,kk in enumerate(k): 
-        system = DampenSpringSystem(1,0,mass, kk, mu)
-        t = np.arange(0,10,0.0000001)
-        x = system.get_solution(t)
+    def equation(self, r, rdot, rdotdot):
+        r1, r2 = r[:, 0:2], r[:, 2:4]
+        rdotdot1, rdotdot2 = rdotdot[:, 0:2], rdotdot[:, 2:4]
+        m1, m2 = self.mass
+        batch_size = r.shape[0]
+        
+        # Create time weights that increase with the sequence
+        alpha = 1.0  # Adjust this value to change the weight growth rate
+        time_weights = torch.pow(alpha, torch.arange(batch_size, device=r.device))
+        
+        time_weights = time_weights / time_weights.mean()  # Normalize weights
+        
+        # Calculate the distance between the two bodies
+        def distance(rA, rB):
+            return torch.norm(rA - rB, dim=1)
+        
+        r12 = distance(r1, r2).unsqueeze(1)
+        
+        # Compute accelerations due to gravity
+        a1 = self.G * m2 * (r2 - r1) / r12**3
+        a2 = self.G * m1 * (r1 - r2) / r12**3
+        
+        
+        # Calculate squared errors and reduce along the coordinate dimension
+        error1 = (rdotdot1 - a1)**2
+        error2 = (rdotdot2 - a2)**2
+        # Apply time weights to the reduced errors
+        weighted_error1 = error1 * time_weights.unsqueeze(1)
+        weighted_error2 = error2 * time_weights.unsqueeze(1)
 
-        data = system.generate_noisy_datapoints(0,10,100,0.05,True)
+        # Take mean of weighted errors
+        return (torch.mean(weighted_error1) + torch.mean(weighted_error2).unsqueeze(0)).squeeze(0), a1, a2 #
+    
+    def momentum(self, rdot):
+        rdot1, rdot2 = rdot[:, 0:2], rdot[:, 2:4]
+        m1, m2 = self.mass
 
-        # axs[i].scatter(t,x)
-        # axs[i].plot(t,x)
+        return m1 * rdot1 + m2 * rdot2
 
-        axs[i].scatter(data["t"][1:-1],data["x"][1:-1], label = "Noisy", color = "blue")
-        axs[i].scatter(data["t"][1:-1],data["xdot"][1:-1], label = "Noisy", color = "red")
-        axs[i].plot(data["t"][1:-1],data["xdotdot"][1:-1], label = "Noisy", color = "orange")
-        # axs[i].plot(t,x)
-        axs[i].set_title(f"ksi: {system.ksi}")
+    def two_body_equations(self, t, y):
+        # Unpack positions and velocities
+        r1, r2 = y[0:2], y[2:4]
+        v1, v2 = y[4:6], y[6:8]
 
+        m1, m2 = self.mass
 
-    plt.legend()
-    plt.show()
+        # Calculate the distance between the two bodies
+        def distance(rA, rB):
+            try:
+                return np.linalg.norm(rA - rB, axis = 0)
+            except Exception:
+                return torch.norm(rA - rB, dim=0)
+        r12 = distance(r1, r2)
+        # Compute accelerations due to gravity
+        a1 = self.G * m2 * (r2 - r1) / r12**3
+        a2 = self.G * m1 * (r1 - r2) / r12**3
 
+        # Return derivative [dr1/dt, dr2/dt, dv1/dt, dv2/dt]
+        return np.concatenate([v1, v2, a1, a2])
 
+    def get_solution(self, t):
+        solution = solve_ivp(self.two_body_equations, self.t_span, self.initial_conditions, t_eval=t, rtol=1e-9)
+        return solution.y[:4], solution.y[4:8]
+
+    def generate_noisy_datapoints(self, t_min, t_max, num_points, std_x):
+        t_sample = np.linspace(t_min, t_max, num_points)
+        true_sol, true_vel = self.get_solution(t_sample)
+        noisy_sol = true_sol + np.random.normal(0, std_x, true_sol.shape)
+        datadict = {
+            "t": t_sample,
+            "x": noisy_sol,
+            "xdot": true_vel
+        }
+        return datadict
