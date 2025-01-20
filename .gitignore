@@ -162,9 +162,9 @@ cython_debug/
 
 runs/
 final_results/
-plot_results.ipynb
-garbage.ipynb
-test_threebody.py
+./plot_results.ipynb
+./garbage.ipynb
+./test_threebody.py
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

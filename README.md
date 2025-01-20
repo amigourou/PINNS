@@ -65,3 +65,34 @@ The code associated with that example is located in ```SpringProblem/```. Some u
 - physics_utils.py : a class that defines the Damped Spring problem
 - model.py : a class for the model, with a method for the physics loss
 - dataset.py : a custom pytorch dataset for training
+
+## Multiple-body problem
+
+Now that we understood a bit more how we can make PINNs work, we can tackle a bit more challenging tasks, such as solving gravitational problems. The formalism of such a thing is given by Newton's second law of motion, which links all the bodies together such that the physics loss can be written as:
+
+$\mathcal{L}_{reg} = \sum_{i=1}^N\|\ddot{\phi}(\textbf{x}_i) - \sum_{j \neq i} \frac{G m_j}{\|\mathbf{x}_j - \mathbf{x}_i\|^3} (\mathbf{x}_j - \mathbf{x}_i)\|_2^2$
+
+We tackle the problem in the case where $N=2$, and we pretend to know for sure the position of one of the bodies through the time period. We train our model to predict the position of the second body for any given time in that period. That gives us, in the extrapolation case:
+
+<img src="figures/pinn_gravity.png" alt="Alt Text" width="350" height="500">
+
+To go further, we could see what's happening to the acceleration, in other words the second derivative of the network. An important thing to note : the network *isn't trained to directly predict that acceleration*: we only regularize the network so that the prediction of the *position* is solution of the ODE.
+
+That being said:
+<img src="figures/PINN_gravity_acceleration.png" alt="Alt Text" width="350" height="500">
+
+We can clearly see that the PINN successfully learnt to be solution of the ODE, since its second derivative matches the true one, which is far to be the case for the baseline
+Since that problem is a bit harder than the previous example, a fancier type of neural network was used to get those results: The SIREN.
+
+### About SIRENs
+
+**SInusoidal Representation Networks** are MLPs with periodic activation functions, and a specific weight initialization to ensure stability of the network. Those activations enable the derviatives of the network to be smoother, and to have similar characteristics as the original one. Indeed, all the derviatives of $\sin(.)$ for example have the same properties as the original function, which gives special properties to the network. With that, we smooth out the derivatives, and stabilize the gradients of the physics loss, that takes into account those derivatives.
+
+### Code
+
+The code associated with that example is located in ```BodiesProblem/```. Some utils are present:
+- main.py : to train the PINN. 
+- physics_utils.py : a class that defines the multiple-body problem. It works with any bodies such that $N \ge 2$
+- model.py : a class for the model, with a method for the physics loss
+- siren_utils.py : a class for the SIREN model, which replaces model.py if the SIREN wants to be used.
+- dataset.py : a custom pytorch dataset for training

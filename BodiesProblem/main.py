@@ -10,9 +10,9 @@ from torch.nn.utils import clip_grad_norm_
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from BodiesProblem.physics_utils_new import ThreeBodySystem, TwoBodySystem, OneBodySystem
+from BodiesProblem.physics_utils import ThreeBodySystem, TwoBodySystem, OneBodySystem
 from BodiesProblem.utils import save_gif, save_plot
-from BodiesProblem.models_new import GravitationalBodiesMLP
+from BodiesProblem.models import GravitationalBodiesMLP
 from BodiesProblem.siren_utils import GravitationalBodiesSIREN
 from BodiesProblem.dataset import PhysicsDataset
 
