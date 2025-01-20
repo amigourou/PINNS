@@ -96,3 +96,7 @@ The code associated with that example is located in ```BodiesProblem/```. Some u
 - model.py : a class for the model, with a method for the physics loss
 - siren_utils.py : a class for the SIREN model, which replaces model.py if the SIREN wants to be used.
 - dataset.py : a custom pytorch dataset for training
+
+# References
+
+1. Sitzmann, V., Martel, J. N. P., Bergman, A. W., Lindell, D. B., & Wetzstein, G. (2020). Implicit Neural Representations with Periodic Activation Functions. CoRR, abs/2006.09661. https://arxiv.org/abs/2006.09661
