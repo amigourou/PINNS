@@ -74,7 +74,7 @@ $\mathcal{L}_{reg} = \sum_{i=1}^N\|\ddot{\phi}(\textbf{x}_i) - \sum_{j \neq i} \
 
 We tackle the problem in the case where $N=2$, and we pretend to know for sure the position of one of the bodies through the time period. We train our model to predict the position of the second body for any given time in that period. That gives us, in the extrapolation case:
 
-<img src="figures/pinn_gravity.png" alt="Alt Text" width="350" height="500">
+<img src="figures/PINN_gravity.png" alt="Alt Text" width="350" height="500">
 
 To go further, we could see what's happening to the acceleration, in other words the second derivative of the network. An important thing to note : the network *isn't trained to directly predict that acceleration*: we only regularize the network so that the prediction of the *position* is solution of the ODE.
 
