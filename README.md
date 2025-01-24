@@ -52,7 +52,11 @@ We fit our regular Neural Network with MSE loss :
 
 Here, the model fits the observed points, but has absolutly no reasons to extrapolate to unseen points according to the physics of the problem. 
 
-The idea is thus to constrain the solutions of our Neural Network to the space of physics solutions of that problem, i.e. to be solution of the ODE of the damped spring : $\ddot{\phi}(\textbf{t}) + 2\xi \omega \dot{\phi}(\textbf{t}) + \omega^2 = 0$. Thus, we can regularize our training by adding a loss, that would be computed on the whole time period of interest : $\mathcal{L}_{reg} = \|\ddot{\phi}(\textbf{t}) + 2\xi \omega \dot{\phi}(\textbf{t}) + \omega^2\|_2^2$. By minimizing it, thus forcing it to be close to 0, our neural network is solution of the ODE and we obtain:
+The idea is thus to constrain the solutions of our Neural Network to the space of physics solutions of that problem, i.e. to be solution of the ODE of the damped spring : $\ddot{\phi}(\textbf{t}) + 2\xi \omega \dot{\phi}(\textbf{t}) + \omega^2 = 0$. Thus, we can regularize our training by adding a loss, that would be computed on the whole time period of interest :
+
+$\mathcal{L}_{reg} = \|\ddot{\phi}(\textbf{t}) + 2\xi \omega \dot{\phi}(\textbf{t}) + \omega^2\|_2^2$.
+
+By minimizing it, thus forcing it to be close to 0, our neural network is solution of the ODE and we obtain:
 
 <img src="figures/PINN_damped_spring.png" alt="Alt Text" width="500" height="350">
 
